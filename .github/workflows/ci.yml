@@ -14,14 +14,13 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # TruffleHog needs full history to scan accurately
+          fetch-depth: 0 # Still required so TruffleHog can track history context
 
       - name: Scan for Hardcoded Secrets
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
-          base: ${{ github.event.repository.default_branch }}
-          head: HEAD
+          # Removed the explicit 'base' and 'head' lines!
           extra_args: --only-verified
 
   # Phase 2: Static analysis, Linting, and Compilation Matrix
