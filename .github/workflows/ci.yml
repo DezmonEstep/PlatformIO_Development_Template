@@ -1,0 +1,63 @@
+name: Arduino CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # Phase 1: Scan for exposed credentials/Wi-Fi passwords before building
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # TruffleHog needs full history to scan accurately
+
+      - name: Scan for Hardcoded Secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --only-verified
+
+  # Phase 2: Static analysis, Linting, and Compilation Matrix
+  build-and-lint:
+    needs: security-scan # Don't waste compute compiling if secrets are leaked
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Cache PlatformIO Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            .pio
+          key: ${{ runner.os }}-platformio-${{ hashFiles('**/platformio.ini') }}
+
+      - name: Install PlatformIO Core & Security Tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install -U platformio flawfinder
+
+      - name: Flawfinder C/C++ Security Audit
+        # Scans src/ and lib/ for dangerous function signatures (like buffer overflows)
+        run: flawfinder src/ lib/ --minlevel=3
+
+      - name: Run PlatformIO Static Code Analysis (Clang-Tidy / Cppcheck)
+        # Injects deep embedded rules to look for memory leaks and uninitialized variables
+        run: pio check --fail-on-defect=high --environment=heltec_wifi_lora_32_V3
+
+      - name: Compile Code (Verify Build Multi-Target)
+        run: pio run

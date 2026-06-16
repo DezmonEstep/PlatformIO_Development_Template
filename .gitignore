@@ -1,0 +1,15 @@
+# PlatformIO local build and configuration directories
+.pio/
+.pioenvs/
+.piolibdeps/
+.clang_complete
+.gcc-flags.json
+.vscode/
+
+# Python compiled files (used by the build system)
+__pycache__/
+*.pyc
+
+# Operating system files
+.DS_Store
+Thumbs.db
